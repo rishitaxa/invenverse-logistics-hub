@@ -23,32 +23,19 @@ const LoginForm = () => {
 
     setIsLoading(true);
     
-    try {
-      // This would be a real authentication API call in a production app
-      console.log("Attempting login with:", { userId, password });
-      
+    // This would be a real authentication API call in a production app
+    setTimeout(() => {
       // Mock login logic - in a real app, this would validate against backend
       if (userId === "admin" && password === "password") {
-        // Store login state in localStorage
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("userId", userId);
-        
-        // Show success message
-        toast.success("Login successful! Redirecting to dashboard...");
-        
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 500);
+        toast.success("Login successful");
+        navigate("/dashboard");
       } else {
-        toast.error("Invalid credentials. Try using 'admin' and 'password'");
+        toast.error("Invalid credentials");
       }
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
-    } finally {
       setIsLoading(false);
-    }
+    }, 1000);
   };
 
   return (
@@ -65,7 +52,7 @@ const LoginForm = () => {
             <Label htmlFor="userId">User ID</Label>
             <Input
               id="userId"
-              placeholder="Enter your user ID (use 'admin')"
+              placeholder="Enter your user ID"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               required
@@ -82,7 +69,7 @@ const LoginForm = () => {
             <Input
               id="password"
               type="password"
-              placeholder="Enter your password (use 'password')"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
