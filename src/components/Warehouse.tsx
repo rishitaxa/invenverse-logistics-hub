@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { 
@@ -12,11 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import GridPathVisualization from "./GridPathVisualization";
 
 const Warehouse = () => {
   const isMobile = useIsMobile();
   const [zoomLevel, setZoomLevel] = useState(1);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [showGridPath, setShowGridPath] = useState(false);
   
   // This would be dynamic data from backend in a real application
   const warehouseData = {
@@ -50,6 +51,15 @@ const Warehouse = () => {
     
     if (zone) {
       toast(`Zone ${id}: ${zone.status} (${zone.utilization}% utilized)`);
+    }
+  };
+  
+  // Handle showing grid path for selected zone
+  const handleShowGridPath = () => {
+    if (selectedZone) {
+      setShowGridPath(true);
+    } else {
+      toast.error("Please select a zone first");
     }
   };
   
@@ -87,6 +97,17 @@ const Warehouse = () => {
       </div>
     );
   };
+
+  if (showGridPath && selectedZone) {
+    return (
+      <div className="flex-1 p-6">
+        <GridPathVisualization 
+          zone={selectedZone} 
+          onClose={() => setShowGridPath(false)} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-6 p-6">
@@ -141,14 +162,23 @@ const Warehouse = () => {
                 <dt className="font-medium">Loading Docks:</dt>
                 <dd>{warehouseData.docks}</dd>
               </div>
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                 {selectedZone ? (
-                  <Button 
-                    className="w-full" 
-                    onClick={handleOptimize}
-                  >
-                    Optimize Zone {selectedZone}
-                  </Button>
+                  <>
+                    <Button 
+                      className="w-full" 
+                      onClick={handleOptimize}
+                    >
+                      Optimize Zone {selectedZone}
+                    </Button>
+                    <Button 
+                      className="w-full" 
+                      variant="outline"
+                      onClick={handleShowGridPath}
+                    >
+                      View Grid Path
+                    </Button>
+                  </>
                 ) : (
                   <Button 
                     className="w-full" 
