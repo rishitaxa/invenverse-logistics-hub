@@ -1,10 +1,11 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { navItems } from "./nav-items";
 
-// Pages
+// Import all page components
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -14,6 +15,8 @@ import WarehousePage from "./pages/WarehousePage";
 import ShipmentPage from "./pages/ShipmentPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import SettingsPage from "./pages/SettingsPage";
+import UserControlPage from "./pages/UserControlPage";
+import PathCustomizerPage from "./pages/PathCustomizerPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,7 +25,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -34,6 +36,8 @@ const App = () => (
           <Route path="/shipments" element={<ShipmentPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/user-control" element={<UserControlPage />} />
+          <Route path="/path-customizer" element={<PathCustomizerPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

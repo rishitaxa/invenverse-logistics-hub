@@ -1,99 +1,131 @@
 
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Package, Warehouse, Search, ArrowRight, ArrowLeft, ChartBar, Settings } from 'lucide-react';
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  BarChart3,
+  Package,
+  Warehouse,
+  Ship,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Edit
+} from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "@/components/ui/sonner";
 
-interface SidebarProps {
-  className?: string;
-}
-
-const Sidebar = ({ className }: SidebarProps) => {
+const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  
-  const routes = [
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("userId");
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
+
+  const navigation = [
     {
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      href: '/dashboard',
-      active: location.pathname === '/dashboard',
+      name: "Dashboard",
+      href: "/dashboard",
+      icon: BarChart3,
     },
     {
-      label: 'Inventory',
+      name: "Inventory",
+      href: "/inventory",
       icon: Package,
-      href: '/inventory',
-      active: location.pathname === '/inventory',
     },
     {
-      label: 'Warehouse',
+      name: "Warehouse",
+      href: "/warehouse",
       icon: Warehouse,
-      href: '/warehouse',
-      active: location.pathname === '/warehouse',
     },
     {
-      label: 'Shipments',
-      icon: Search,
-      href: '/shipments',
-      active: location.pathname === '/shipments',
+      name: "Shipments",
+      href: "/shipments",
+      icon: Ship,
     },
     {
-      label: 'Analytics',
-      icon: ChartBar,
-      href: '/analytics',
-      active: location.pathname === '/analytics',
+      name: "User Control",
+      href: "/user-control",
+      icon: User,
     },
     {
-      label: 'Settings',
+      name: "Path Customizer",
+      href: "/path-customizer",
+      icon: Edit,
+    },
+    {
+      name: "Settings",
+      href: "/settings",
       icon: Settings,
-      href: '/settings',
-      active: location.pathname === '/settings',
     },
   ];
 
   return (
-    <div className={cn(
-      "relative flex flex-col border-r bg-sidebar h-screen",
-      collapsed ? "w-[70px]" : "w-[240px]",
-      className
-    )}>
-      <div className="flex h-14 items-center border-b px-4 py-2">
+    <div
+      className={cn(
+        "flex h-screen flex-col border-r bg-muted/40 transition-all duration-300",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
+      <div className="flex h-14 items-center justify-between border-b px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2 font-semibold">
-            <span className="text-xl font-bold">
-              WMS<span className="text-primary">Pro</span>
-            </span>
-          </div>
+          <h2 className="text-lg font-semibold">Warehouse Pro</h2>
         )}
-      </div>
-      <div className="flex-1 overflow-auto py-2">
-        <nav className="grid gap-1 px-2">
-          {routes.map((route, i) => (
-            <Link
-              key={i}
-              to={route.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all",
-                route.active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground",
-                collapsed && "justify-center py-3"
-              )}
-            >
-              <route.icon className={cn("h-5 w-5", collapsed ? "h-6 w-6" : "")} />
-              {!collapsed && <span>{route.label}</span>}
-            </Link>
-          ))}
-        </nav>
-      </div>
-      <div className="mt-auto p-4">
         <Button
-          onClick={() => setCollapsed(!collapsed)}
-          size="sm"
           variant="ghost"
-          className="w-full justify-center"
+          size="icon"
+          onClick={() => setCollapsed(!collapsed)}
+          className="h-8 w-8"
         >
-          {collapsed ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
-          {!collapsed && <span className="ml-2">Collapse</span>}
+          {collapsed ? (
+            <ChevronRight className="h-4 w-4" />
+          ) : (
+            <ChevronLeft className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+      
+      <ScrollArea className="flex-1 px-3 py-4">
+        <nav className="space-y-2">
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href;
+            return (
+              <Link key={item.name} to={item.href}>
+                <Button
+                  variant={isActive ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start gap-2",
+                    collapsed ? "px-2" : "px-3"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 flex-shrink-0" />
+                  {!collapsed && <span>{item.name}</span>}
+                </Button>
+              </Link>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      <div className="border-t p-3">
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full gap-2",
+            collapsed ? "justify-center px-2" : "justify-start px-3"
+          )}
+          onClick={handleLogout}
+        >
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Logout</span>}
         </Button>
       </div>
     </div>
