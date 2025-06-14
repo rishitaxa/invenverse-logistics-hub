@@ -31,8 +31,8 @@ const GridPathVisualization = ({ zone, onClose }: GridPathVisualizationProps) =>
   const [isCalculating, setIsCalculating] = useState(false);
   const gridSize = 15;
 
-  // Initialize grid
-  useEffect(() => {
+  // Utility to generate a fully walkable grid and optionally add removable obstacles
+  const generateSolvableGrid = (start?: {x:number, y:number}, end?: {x:number, y:number}) => {
     const newGrid: GridCell[][] = [];
     for (let y = 0; y < gridSize; y++) {
       const row: GridCell[] = [];
@@ -40,7 +40,7 @@ const GridPathVisualization = ({ zone, onClose }: GridPathVisualizationProps) =>
         row.push({
           x,
           y,
-          isWalkable: Math.random() > 0.2, // 80% walkable cells
+          isWalkable: true,
           isStart: false,
           isEnd: false,
           isPath: false,
@@ -48,41 +48,61 @@ const GridPathVisualization = ({ zone, onClose }: GridPathVisualizationProps) =>
       }
       newGrid.push(row);
     }
-    setGrid(newGrid);
+    // Optionally: Add some random obstacles, but never block the shortest path
+    if (start && end) {
+      // Use aStarPathfinding to compute a guaranteed path
+      let path = aStarPathfinding(newGrid, start, end);
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          // Block some random cells not on the path
+          if (
+            Math.random() > 0.8 && // 20% chance blocked
+            !path.some(pt => pt.x === x && pt.y === y) &&
+            !(start.x === x && start.y === y) &&
+            !(end.x === x && end.y === y)
+          ) {
+            newGrid[y][x].isWalkable = false;
+          }
+        }
+      }
+    }
+    return newGrid;
+  };
+
+  // Set up the grid for the first time: blank grid to select points
+  useEffect(() => {
+    setGrid(generateSolvableGrid());
   }, []);
 
   const handleCellClick = (x: number, y: number) => {
     if (!grid[y][x].isWalkable) return;
-
-    const newGrid = [...grid];
-    
+    const newGrid = grid.map(row => row.map(cell => ({
+      ...cell,
+      isStart: false,
+      isEnd: false,
+      isPath: false,
+    })));
     if (!startPoint) {
-      // Set start point
       newGrid[y][x].isStart = true;
       setStartPoint({x, y});
+      setGrid(newGrid);
     } else if (!endPoint && !(x === startPoint.x && y === startPoint.y)) {
-      // Set end point
+      newGrid[startPoint.y][startPoint.x].isStart = true;
       newGrid[y][x].isEnd = true;
       setEndPoint({x, y});
+      // Now, regenerate grid guaranteeing a solution
+      const solvableGrid = generateSolvableGrid(startPoint, {x, y});
+      solvableGrid[startPoint.y][startPoint.x].isStart = true;
+      solvableGrid[y][x].isEnd = true;
+      setGrid(solvableGrid);
     } else {
       // Reset points
       clearPath();
-      return;
     }
-    
-    setGrid(newGrid);
   };
 
   const clearPath = () => {
-    const newGrid = grid.map(row => 
-      row.map(cell => ({
-        ...cell,
-        isStart: false,
-        isEnd: false,
-        isPath: false,
-      }))
-    );
-    setGrid(newGrid);
+    setGrid(generateSolvableGrid());
     setStartPoint(null);
     setEndPoint(null);
     setPathLength(0);
@@ -112,18 +132,22 @@ const GridPathVisualization = ({ zone, onClose }: GridPathVisualizationProps) =>
       }
 
       // Update grid with path
-      const newGrid = [...grid];
-      path.forEach(point => {
-        if (!(point.x === startPoint.x && point.y === startPoint.y) && 
-            !(point.x === endPoint.x && point.y === endPoint.y)) {
-          newGrid[point.y][point.x].isPath = true;
-        }
-      });
-
+      const newGrid = grid.map((row, y) =>
+        row.map((cell, x) => ({
+          ...cell,
+          isPath: path.some(
+            (pt) =>
+              pt.x === x &&
+              pt.y === y &&
+              !((pt.x === startPoint.x && pt.y === startPoint.y) ||
+                (pt.x === endPoint.x && pt.y === endPoint.y))
+          ),
+        }))
+      );
       setGrid(newGrid);
+
       const length = calculatePathLength(path);
       setPathLength(length);
-      
       toast.success(`Path calculated using ${selectedAlgorithm.toUpperCase()}! Length: ${length} units`);
     } catch (error) {
       toast.error("Error calculating path");
@@ -221,5 +245,4 @@ const GridPathVisualization = ({ zone, onClose }: GridPathVisualizationProps) =>
     </Card>
   );
 };
-
 export default GridPathVisualization;

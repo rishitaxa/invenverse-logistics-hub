@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,8 +32,8 @@ const PathCustomizer = () => {
   const [gridSize, setGridSize] = useState(15);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
 
-  // Create sample grid for path calculation
-  const createSampleGrid = () => {
+  // Always generate a grid where the path exists
+  const createSampleGrid = (start?: {x:number, y:number}, end?: {x:number, y:number}) => {
     const grid = [];
     for (let y = 0; y < gridSize; y++) {
       const row = [];
@@ -42,13 +41,28 @@ const PathCustomizer = () => {
         row.push({
           x,
           y,
-          isWalkable: Math.random() > 0.2, // 80% walkable
+          isWalkable: true,
           isStart: false,
           isEnd: false,
           isPath: false,
         });
       }
       grid.push(row);
+    }
+    if (start && end) {
+      let path = aStarPathfinding(grid, start, end);
+      for (let y = 0; y < gridSize; y++) {
+        for (let x = 0; x < gridSize; x++) {
+          if (
+            Math.random() > 0.8 &&
+            !path.some(pt => pt.x === x && pt.y === y) &&
+            !(start.x === x && start.y === y) &&
+            !(end.x === x && end.y === y)
+          ) {
+            grid[y][x].isWalkable = false;
+          }
+        }
+      }
     }
     return grid;
   };
@@ -64,9 +78,9 @@ const PathCustomizer = () => {
       return;
     }
 
-    const grid = createSampleGrid();
     const start = { x: newPath.startX, y: newPath.startY };
     const end = { x: newPath.endX, y: newPath.endY };
+    const grid = createSampleGrid(start, end);
 
     // Ensure start and end points are walkable
     if (start.x >= 0 && start.x < gridSize && start.y >= 0 && start.y < gridSize) {
@@ -77,7 +91,6 @@ const PathCustomizer = () => {
     }
 
     let path: { x: number; y: number }[] = [];
-
     try {
       if (newPath.algorithm === "astar") {
         path = aStarPathfinding(grid, start, end);
@@ -91,8 +104,8 @@ const PathCustomizer = () => {
       }
 
       const length = calculatePathLength(path);
-      
-      const customPath: CustomPath = {
+
+      const customPath = {
         id: Date.now().toString(),
         name: newPath.name,
         startPoint: start,
