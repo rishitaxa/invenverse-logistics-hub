@@ -24,6 +24,15 @@ interface DijkstraNode {
   parent: DijkstraNode | null;
 }
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  quantity: number;
+  location: string;
+  cost: number;
+  category: string;
+}
+
 // Manhattan distance heuristic for A*
 const heuristic = (a: { x: number; y: number }, b: { x: number; y: number }): number => {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -233,4 +242,103 @@ export const calculatePathLength = (path: { x: number; y: number }[]): number =>
   }
   
   return Math.round(length * 100) / 100;
+};
+
+// Knapsack optimization algorithm for inventory
+export const knapsackOptimization = (items: InventoryItem[], capacity: number): { value: number; items: InventoryItem[] } => {
+  const n = items.length;
+  const dp: number[][] = Array(n + 1).fill(null).map(() => Array(capacity + 1).fill(0));
+  
+  // Build table dp[][] in bottom up manner
+  for (let i = 1; i <= n; i++) {
+    for (let w = 1; w <= capacity; w++) {
+      const weight = items[i - 1].quantity;
+      const value = items[i - 1].cost * items[i - 1].quantity;
+      
+      if (weight <= w) {
+        dp[i][w] = Math.max(value + dp[i - 1][w - weight], dp[i - 1][w]);
+      } else {
+        dp[i][w] = dp[i - 1][w];
+      }
+    }
+  }
+  
+  // Find which items to include
+  const selectedItems: InventoryItem[] = [];
+  let w = capacity;
+  for (let i = n; i > 0 && dp[i][w] > 0; i--) {
+    if (dp[i][w] !== dp[i - 1][w]) {
+      selectedItems.push(items[i - 1]);
+      w -= items[i - 1].quantity;
+    }
+  }
+  
+  return { value: dp[n][capacity], items: selectedItems };
+};
+
+// LRU Cache implementation
+export class lruCache<T> {
+  private cache: Map<string, T>;
+  private maxSize: number;
+
+  constructor(maxSize: number = 100) {
+    this.cache = new Map();
+    this.maxSize = maxSize;
+  }
+
+  get(key: string): T | undefined {
+    if (this.cache.has(key)) {
+      const value = this.cache.get(key)!;
+      // Move to end (most recently used)
+      this.cache.delete(key);
+      this.cache.set(key, value);
+      return value;
+    }
+    return undefined;
+  }
+
+  set(key: string, value: T): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // Remove least recently used (first item)
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+// HashMap search function
+export const hashMapSearch = <T extends Record<string, any>>(
+  items: T[],
+  searchKey: keyof T,
+  searchValue: string
+): T[] => {
+  const searchMap = new Map<string, T[]>();
+  
+  // Build hash map
+  items.forEach(item => {
+    const key = String(item[searchKey]).toLowerCase();
+    if (!searchMap.has(key)) {
+      searchMap.set(key, []);
+    }
+    searchMap.get(key)!.push(item);
+  });
+  
+  // Search for matching items
+  const searchTerm = searchValue.toLowerCase();
+  const results: T[] = [];
+  
+  for (const [key, itemList] of searchMap.entries()) {
+    if (key.includes(searchTerm)) {
+      results.push(...itemList);
+    }
+  }
+  
+  return results;
 };

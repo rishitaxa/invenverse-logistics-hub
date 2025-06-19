@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
-import { Plus, Trash2, Settings, Save } from "lucide-react";
+import { Plus, Trash2, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -34,8 +34,8 @@ interface Shipment {
   shipment_number: string;
   type: "inbound" | "outbound";
   status: string;
-  supplier?: string;
-  customer?: string;
+  supplier?: string | null;
+  customer?: string | null;
   created_at: string;
 }
 
@@ -74,7 +74,14 @@ const UserControlPanel = () => {
 
       if (productsResult.data) setProducts(productsResult.data);
       if (ordersResult.data) setOrders(ordersResult.data);
-      if (shipmentsResult.data) setShipments(shipmentsResult.data);
+      if (shipmentsResult.data) {
+        // Type the shipments data properly
+        const typedShipments: Shipment[] = shipmentsResult.data.map(shipment => ({
+          ...shipment,
+          type: shipment.type as "inbound" | "outbound"
+        }));
+        setShipments(typedShipments);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
@@ -177,7 +184,12 @@ const UserControlPanel = () => {
 
       if (error) throw error;
 
-      setShipments([...shipments, data]);
+      const typedShipment: Shipment = {
+        ...data,
+        type: data.type as "inbound" | "outbound"
+      };
+
+      setShipments([...shipments, typedShipment]);
       setNewShipment({ type: "inbound", status: "Scheduled", supplier: "", customer: "" });
       toast.success("Shipment created successfully!");
     } catch (error) {
