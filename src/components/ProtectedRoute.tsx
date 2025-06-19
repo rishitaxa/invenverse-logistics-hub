@@ -12,11 +12,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('ProtectedRoute - User:', user?.email, 'Loading:', loading);
+    console.log('ProtectedRoute - User:', user?.email || 'No user', 'Loading:', loading);
     
     if (!loading && !user) {
       console.log('No user found, redirecting to login');
-      navigate("/login");
+      navigate("/login", { replace: true });
     }
   }, [user, loading, navigate]);
 

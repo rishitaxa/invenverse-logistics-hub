@@ -49,6 +49,8 @@ const LoginForm = () => {
           toast.error("Invalid email or password. Please check your credentials.");
         } else if (error.message.includes('Email not confirmed')) {
           toast.error("Please confirm your email address before logging in.");
+        } else if (error.message.includes('Too many requests')) {
+          toast.error("Too many login attempts. Please try again later.");
         } else {
           toast.error(error.message || "Login failed");
         }
@@ -85,6 +87,7 @@ const LoginForm = () => {
               onChange={(e) => setEmail(e.target.value)}
               required
               className="bg-secondary/50"
+              disabled={isLoading}
             />
           </div>
           <div className="space-y-2">
@@ -102,6 +105,7 @@ const LoginForm = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
               className="bg-secondary/50"
+              disabled={isLoading}
             />
           </div>
         </form>
