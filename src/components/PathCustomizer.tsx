@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,31 +7,64 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { aStarPathfinding, dijkstraPathfinding, calculatePathLength } from "@/utils/algorithms";
-import { Edit, Save, Play } from "lucide-react";
+import { Edit, Save, Play, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface CustomPath {
   id: string;
   name: string;
-  startPoint: { x: number; y: number };
-  endPoint: { x: number; y: number };
+  start_x: number;
+  start_y: number;
+  end_x: number;
+  end_y: number;
   algorithm: string;
   length: number;
-  created: string;
+  grid_size: number;
+  created_at: string;
 }
 
 const PathCustomizer = () => {
+  const { user } = useAuth();
   const [customPaths, setCustomPaths] = useState<CustomPath[]>([]);
+  const [loading, setLoading] = useState(true);
   const [newPath, setNewPath] = useState({
     name: "",
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
+    start_x: 0,
+    start_y: 0,
+    end_x: 0,
+    end_y: 0,
     algorithm: "astar"
   });
 
   const [gridSize, setGridSize] = useState(15);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
+
+  // Fetch custom paths from Supabase
+  const fetchCustomPaths = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('custom_paths')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      setCustomPaths(data || []);
+    } catch (error) {
+      console.error('Error fetching custom paths:', error);
+      toast.error('Failed to load custom paths');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomPaths();
+  }, [user]);
 
   // Always generate a grid where the path exists
   const createSampleGrid = (start?: {x:number, y:number}, end?: {x:number, y:number}) => {
@@ -67,28 +101,37 @@ const PathCustomizer = () => {
     return grid;
   };
 
-  const calculateCustomPath = () => {
+  const calculateCustomPath = async () => {
+    if (!user) {
+      toast.error("Please log in to save custom paths");
+      return;
+    }
+
     if (!newPath.name) {
       toast.error("Please enter a path name");
       return;
     }
 
-    if (newPath.startX === newPath.endX && newPath.startY === newPath.endY) {
+    if (newPath.start_x === newPath.end_x && newPath.start_y === newPath.end_y) {
       toast.error("Start and end points cannot be the same");
       return;
     }
 
-    const start = { x: newPath.startX, y: newPath.startY };
-    const end = { x: newPath.endX, y: newPath.endY };
+    if (newPath.start_x < 0 || newPath.start_x >= gridSize || 
+        newPath.start_y < 0 || newPath.start_y >= gridSize ||
+        newPath.end_x < 0 || newPath.end_x >= gridSize ||
+        newPath.end_y < 0 || newPath.end_y >= gridSize) {
+      toast.error(`Coordinates must be between 0 and ${gridSize - 1}`);
+      return;
+    }
+
+    const start = { x: newPath.start_x, y: newPath.start_y };
+    const end = { x: newPath.end_x, y: newPath.end_y };
     const grid = createSampleGrid(start, end);
 
     // Ensure start and end points are walkable
-    if (start.x >= 0 && start.x < gridSize && start.y >= 0 && start.y < gridSize) {
-      grid[start.y][start.x].isWalkable = true;
-    }
-    if (end.x >= 0 && end.x < gridSize && end.y >= 0 && end.y < gridSize) {
-      grid[end.y][end.x].isWalkable = true;
-    }
+    grid[start.y][start.x].isWalkable = true;
+    grid[end.y][end.x].isWalkable = true;
 
     let path: { x: number; y: number }[] = [];
     try {
@@ -105,39 +148,80 @@ const PathCustomizer = () => {
 
       const length = calculatePathLength(path);
 
-      const customPath = {
-        id: Date.now().toString(),
+      // Save to Supabase
+      const { data, error } = await supabase.from('custom_paths').insert([{
+        user_id: user.id,
         name: newPath.name,
-        startPoint: start,
-        endPoint: end,
+        start_x: newPath.start_x,
+        start_y: newPath.start_y,
+        end_x: newPath.end_x,
+        end_y: newPath.end_y,
         algorithm: newPath.algorithm,
         length: length,
-        created: new Date().toLocaleString()
-      };
+        grid_size: gridSize
+      }]).select().single();
 
-      setCustomPaths([...customPaths, customPath]);
-      setNewPath({ name: "", startX: 0, startY: 0, endX: 0, endY: 0, algorithm: "astar" });
-      toast.success(`Path "${customPath.name}" created! Length: ${length} units`);
+      if (error) throw error;
+
+      setCustomPaths([data, ...customPaths]);
+      setNewPath({ name: "", start_x: 0, start_y: 0, end_x: 0, end_y: 0, algorithm: "astar" });
+      toast.success(`Path "${data.name}" created and saved! Length: ${length} units`);
     } catch (error) {
-      toast.error("Error calculating path");
+      console.error('Error saving custom path:', error);
+      toast.error("Failed to save custom path");
     }
   };
 
-  const deletePath = (id: string) => {
-    setCustomPaths(customPaths.filter(p => p.id !== id));
-    toast.success("Path deleted successfully!");
+  const deletePath = async (id: string) => {
+    try {
+      const { error } = await supabase.from('custom_paths').delete().eq('id', id);
+      if (error) throw error;
+
+      setCustomPaths(customPaths.filter(p => p.id !== id));
+      toast.success("Path deleted successfully!");
+    } catch (error) {
+      console.error('Error deleting path:', error);
+      toast.error("Failed to delete path");
+    }
   };
 
-  const duplicatePath = (path: CustomPath) => {
-    const duplicated: CustomPath = {
-      ...path,
-      id: Date.now().toString(),
-      name: `${path.name} (Copy)`,
-      created: new Date().toLocaleString()
-    };
-    setCustomPaths([...customPaths, duplicated]);
-    toast.success("Path duplicated successfully!");
+  const duplicatePath = async (path: CustomPath) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase.from('custom_paths').insert([{
+        user_id: user.id,
+        name: `${path.name} (Copy)`,
+        start_x: path.start_x,
+        start_y: path.start_y,
+        end_x: path.end_x,
+        end_y: path.end_y,
+        algorithm: path.algorithm,
+        length: path.length,
+        grid_size: path.grid_size
+      }]).select().single();
+
+      if (error) throw error;
+
+      setCustomPaths([data, ...customPaths]);
+      toast.success("Path duplicated successfully!");
+    } catch (error) {
+      console.error('Error duplicating path:', error);
+      toast.error("Failed to duplicate path");
+    }
   };
+
+  if (!user) {
+    return (
+      <div className="p-6 text-center">
+        <p className="text-lg">Please log in to access the Path Customizer</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return <div className="p-6 text-center">Loading...</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -178,16 +262,16 @@ const PathCustomizer = () => {
                 <div className="flex gap-2">
                   <Input
                     type="number"
-                    value={newPath.startX}
-                    onChange={(e) => setNewPath({...newPath, startX: Number(e.target.value)})}
+                    value={newPath.start_x}
+                    onChange={(e) => setNewPath({...newPath, start_x: Number(e.target.value)})}
                     min={0}
                     max={gridSize - 1}
                     placeholder="X"
                   />
                   <Input
                     type="number"
-                    value={newPath.startY}
-                    onChange={(e) => setNewPath({...newPath, startY: Number(e.target.value)})}
+                    value={newPath.start_y}
+                    onChange={(e) => setNewPath({...newPath, start_y: Number(e.target.value)})}
                     min={0}
                     max={gridSize - 1}
                     placeholder="Y"
@@ -200,16 +284,16 @@ const PathCustomizer = () => {
                 <div className="flex gap-2">
                   <Input
                     type="number"
-                    value={newPath.endX}
-                    onChange={(e) => setNewPath({...newPath, endX: Number(e.target.value)})}
+                    value={newPath.end_x}
+                    onChange={(e) => setNewPath({...newPath, end_x: Number(e.target.value)})}
                     min={0}
                     max={gridSize - 1}
                     placeholder="X"
                   />
                   <Input
                     type="number"
-                    value={newPath.endY}
-                    onChange={(e) => setNewPath({...newPath, endY: Number(e.target.value)})}
+                    value={newPath.end_y}
+                    onChange={(e) => setNewPath({...newPath, end_y: Number(e.target.value)})}
                     min={0}
                     max={gridSize - 1}
                     placeholder="Y"
@@ -233,7 +317,7 @@ const PathCustomizer = () => {
 
             <Button onClick={calculateCustomPath} className="w-full">
               <Play className="h-4 w-4 mr-2" />
-              Calculate Path
+              Calculate & Save Path
             </Button>
           </CardContent>
         </Card>
@@ -256,12 +340,14 @@ const PathCustomizer = () => {
                     <div className="flex-1">
                       <h4 className="font-semibold">{path.name}</h4>
                       <p className="text-sm text-muted-foreground">
-                        ({path.startPoint.x}, {path.startPoint.y}) → ({path.endPoint.x}, {path.endPoint.y})
+                        ({path.start_x}, {path.start_y}) → ({path.end_x}, {path.end_y})
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {path.algorithm.toUpperCase()} | Length: {path.length} units
+                        {path.algorithm.toUpperCase()} | Length: {path.length} units | Grid: {path.grid_size}x{path.grid_size}
                       </p>
-                      <p className="text-xs text-muted-foreground">Created: {path.created}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Created: {new Date(path.created_at).toLocaleString()}
+                      </p>
                     </div>
                     <div className="flex gap-1">
                       <Button
@@ -282,7 +368,7 @@ const PathCustomizer = () => {
                           deletePath(path.id);
                         }}
                       >
-                        Delete
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>

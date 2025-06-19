@@ -6,36 +6,39 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const LoginForm = () => {
-  const [userId, setUserId] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!userId || !password) {
+    if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
     }
 
     setIsLoading(true);
     
-    // This would be a real authentication API call in a production app
-    setTimeout(() => {
-      // Mock login logic - in a real app, this would validate against backend
-      if (userId === "admin" && password === "password") {
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("userId", userId);
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        toast.error(error.message || "Login failed");
+      } else {
         toast.success("Login successful");
         navigate("/dashboard");
-      } else {
-        toast.error("Invalid credentials");
       }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -49,12 +52,13 @@ const LoginForm = () => {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="userId">User ID</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
-              id="userId"
-              placeholder="Enter your user ID"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
               className="bg-secondary/50"
             />

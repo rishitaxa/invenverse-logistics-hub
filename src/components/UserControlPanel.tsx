@@ -1,14 +1,15 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/sonner";
-import { Plus, Edit, Trash2, Settings, Save } from "lucide-react";
+import { Plus, Trash2, Settings, Save } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Product {
   id: string;
@@ -21,123 +22,186 @@ interface Product {
 
 interface Order {
   id: string;
-  customerName: string;
-  products: string[];
+  order_number: string;
+  customer_name: string;
   status: string;
   priority: string;
-  date: string;
+  created_at: string;
 }
 
 interface Shipment {
   id: string;
+  shipment_number: string;
   type: "inbound" | "outbound";
-  items: string[];
   status: string;
-  date: string;
   supplier?: string;
   customer?: string;
+  created_at: string;
 }
 
 const UserControlPanel = () => {
-  const [products, setProducts] = useState<Product[]>([
-    { id: "1", name: "Widget A", category: "Electronics", quantity: 100, location: "A-101", price: 25.50 },
-    { id: "2", name: "Gadget B", category: "Tools", quantity: 50, location: "B-202", price: 45.00 },
-  ]);
-
-  const [orders, setOrders] = useState<Order[]>([
-    { id: "ORD-001", customerName: "John Doe", products: ["1"], status: "Processing", priority: "High", date: "2024-01-15" },
-  ]);
-
-  const [shipments, setShipments] = useState<Shipment[]>([
-    { id: "SHIP-001", type: "inbound", items: ["1"], status: "In Transit", date: "2024-01-16", supplier: "Tech Corp" },
-  ]);
-
-  const [warehouseConfig, setWarehouseConfig] = useState({
-    zones: 8,
-    capacity: 10000,
-    algorithm: "astar",
-    gridSize: 15,
-  });
+  const { user } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [newProduct, setNewProduct] = useState({
     name: "", category: "", quantity: 0, location: "", price: 0
   });
 
   const [newOrder, setNewOrder] = useState({
-    customerName: "", products: [], status: "Processing", priority: "Medium"
+    customer_name: "", status: "Processing", priority: "Medium"
   });
 
   const [newShipment, setNewShipment] = useState({
     type: "inbound" as "inbound" | "outbound",
-    items: [],
     status: "Scheduled",
     supplier: "",
     customer: ""
   });
 
-  const addProduct = () => {
-    if (!newProduct.name || !newProduct.category || !newProduct.location) {
+  // Fetch data from Supabase
+  const fetchData = async () => {
+    if (!user) return;
+    
+    try {
+      const [productsResult, ordersResult, shipmentsResult] = await Promise.all([
+        supabase.from('products').select('*').eq('user_id', user.id),
+        supabase.from('orders').select('*').eq('user_id', user.id),
+        supabase.from('shipments').select('*').eq('user_id', user.id)
+      ]);
+
+      if (productsResult.data) setProducts(productsResult.data);
+      if (ordersResult.data) setOrders(ordersResult.data);
+      if (shipmentsResult.data) setShipments(shipmentsResult.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [user]);
+
+  const addProduct = async () => {
+    if (!user || !newProduct.name || !newProduct.category || !newProduct.location) {
       toast.error("Please fill all product fields");
       return;
     }
 
-    const product: Product = {
-      id: Date.now().toString(),
-      ...newProduct
-    };
+    try {
+      const { data, error } = await supabase.from('products').insert([{
+        user_id: user.id,
+        ...newProduct
+      }]).select().single();
 
-    setProducts([...products, product]);
-    setNewProduct({ name: "", category: "", quantity: 0, location: "", price: 0 });
-    toast.success("Product added successfully!");
+      if (error) throw error;
+
+      setProducts([...products, data]);
+      setNewProduct({ name: "", category: "", quantity: 0, location: "", price: 0 });
+      toast.success("Product added successfully!");
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast.error("Failed to add product");
+    }
   };
 
-  const deleteProduct = (id: string) => {
-    setProducts(products.filter(p => p.id !== id));
-    toast.success("Product deleted successfully!");
+  const deleteProduct = async (id: string) => {
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) throw error;
+
+      setProducts(products.filter(p => p.id !== id));
+      toast.success("Product deleted successfully!");
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error("Failed to delete product");
+    }
   };
 
-  const addOrder = () => {
-    if (!newOrder.customerName) {
+  const addOrder = async () => {
+    if (!user || !newOrder.customer_name) {
       toast.error("Please enter customer name");
       return;
     }
 
-    const order: Order = {
-      id: `ORD-${Date.now()}`,
-      ...newOrder,
-      date: new Date().toISOString().split('T')[0]
-    };
+    try {
+      const orderNumber = `ORD-${Date.now()}`;
+      const { data, error } = await supabase.from('orders').insert([{
+        user_id: user.id,
+        order_number: orderNumber,
+        ...newOrder
+      }]).select().single();
 
-    setOrders([...orders, order]);
-    setNewOrder({ customerName: "", products: [], status: "Processing", priority: "Medium" });
-    toast.success("Order created successfully!");
+      if (error) throw error;
+
+      setOrders([...orders, data]);
+      setNewOrder({ customer_name: "", status: "Processing", priority: "Medium" });
+      toast.success("Order created successfully!");
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast.error("Failed to create order");
+    }
   };
 
-  const deleteOrder = (id: string) => {
-    setOrders(orders.filter(o => o.id !== id));
-    toast.success("Order deleted successfully!");
+  const deleteOrder = async (id: string) => {
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', id);
+      if (error) throw error;
+
+      setOrders(orders.filter(o => o.id !== id));
+      toast.success("Order deleted successfully!");
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error("Failed to delete order");
+    }
   };
 
-  const addShipment = () => {
-    const shipment: Shipment = {
-      id: `SHIP-${Date.now()}`,
-      ...newShipment,
-      date: new Date().toISOString().split('T')[0]
-    };
+  const addShipment = async () => {
+    if (!user) {
+      toast.error("User not authenticated");
+      return;
+    }
 
-    setShipments([...shipments, shipment]);
-    setNewShipment({ type: "inbound", items: [], status: "Scheduled", supplier: "", customer: "" });
-    toast.success("Shipment created successfully!");
+    try {
+      const shipmentNumber = `SHIP-${Date.now()}`;
+      const { data, error } = await supabase.from('shipments').insert([{
+        user_id: user.id,
+        shipment_number: shipmentNumber,
+        ...newShipment
+      }]).select().single();
+
+      if (error) throw error;
+
+      setShipments([...shipments, data]);
+      setNewShipment({ type: "inbound", status: "Scheduled", supplier: "", customer: "" });
+      toast.success("Shipment created successfully!");
+    } catch (error) {
+      console.error('Error creating shipment:', error);
+      toast.error("Failed to create shipment");
+    }
   };
 
-  const deleteShipment = (id: string) => {
-    setShipments(shipments.filter(s => s.id !== id));
-    toast.success("Shipment deleted successfully!");
+  const deleteShipment = async (id: string) => {
+    try {
+      const { error } = await supabase.from('shipments').delete().eq('id', id);
+      if (error) throw error;
+
+      setShipments(shipments.filter(s => s.id !== id));
+      toast.success("Shipment deleted successfully!");
+    } catch (error) {
+      console.error('Error deleting shipment:', error);
+      toast.error("Failed to delete shipment");
+    }
   };
 
-  const updateWarehouseConfig = () => {
-    toast.success("Warehouse configuration updated!");
-  };
+  if (loading) {
+    return <div className="p-6 text-center">Loading...</div>;
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -147,11 +211,10 @@ const UserControlPanel = () => {
       </div>
 
       <Tabs defaultValue="products" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="shipments">Shipments</TabsTrigger>
-          <TabsTrigger value="warehouse">Warehouse</TabsTrigger>
         </TabsList>
 
         <TabsContent value="products" className="space-y-4">
@@ -233,6 +296,11 @@ const UserControlPanel = () => {
                     </Button>
                   </div>
                 ))}
+                {products.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    No products yet. Add your first product above!
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -248,8 +316,8 @@ const UserControlPanel = () => {
                 <div>
                   <Label>Customer Name</Label>
                   <Input
-                    value={newOrder.customerName}
-                    onChange={(e) => setNewOrder({...newOrder, customerName: e.target.value})}
+                    value={newOrder.customer_name}
+                    onChange={(e) => setNewOrder({...newOrder, customer_name: e.target.value})}
                     placeholder="Enter customer name"
                   />
                 </div>
@@ -283,9 +351,9 @@ const UserControlPanel = () => {
                 {orders.map((order) => (
                   <div key={order.id} className="flex justify-between items-center p-3 border rounded">
                     <div>
-                      <span className="font-semibold">{order.id}</span>
+                      <span className="font-semibold">{order.order_number}</span>
                       <span className="text-sm text-muted-foreground ml-2">
-                        {order.customerName} | {order.status} | {order.priority} | {order.date}
+                        {order.customer_name} | {order.status} | {order.priority}
                       </span>
                     </div>
                     <Button
@@ -297,6 +365,11 @@ const UserControlPanel = () => {
                     </Button>
                   </div>
                 ))}
+                {orders.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    No orders yet. Create your first order above!
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -371,9 +444,9 @@ const UserControlPanel = () => {
                 {shipments.map((shipment) => (
                   <div key={shipment.id} className="flex justify-between items-center p-3 border rounded">
                     <div>
-                      <span className="font-semibold">{shipment.id}</span>
+                      <span className="font-semibold">{shipment.shipment_number}</span>
                       <span className="text-sm text-muted-foreground ml-2">
-                        {shipment.type} | {shipment.status} | {shipment.date} | 
+                        {shipment.type} | {shipment.status} | 
                         {shipment.supplier || shipment.customer}
                       </span>
                     </div>
@@ -386,60 +459,12 @@ const UserControlPanel = () => {
                     </Button>
                   </div>
                 ))}
+                {shipments.length === 0 && (
+                  <div className="text-center text-muted-foreground py-8">
+                    No shipments yet. Create your first shipment above!
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="warehouse" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Warehouse Configuration</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Number of Zones</Label>
-                  <Input
-                    type="number"
-                    value={warehouseConfig.zones}
-                    onChange={(e) => setWarehouseConfig({...warehouseConfig, zones: Number(e.target.value)})}
-                  />
-                </div>
-                <div>
-                  <Label>Total Capacity</Label>
-                  <Input
-                    type="number"
-                    value={warehouseConfig.capacity}
-                    onChange={(e) => setWarehouseConfig({...warehouseConfig, capacity: Number(e.target.value)})}
-                  />
-                </div>
-                <div>
-                  <Label>Default Algorithm</Label>
-                  <Select value={warehouseConfig.algorithm} onValueChange={(value) => setWarehouseConfig({...warehouseConfig, algorithm: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="astar">A* Algorithm</SelectItem>
-                      <SelectItem value="dijkstra">Dijkstra</SelectItem>
-                      <SelectItem value="genetic">Genetic Algorithm</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Grid Size</Label>
-                  <Input
-                    type="number"
-                    value={warehouseConfig.gridSize}
-                    onChange={(e) => setWarehouseConfig({...warehouseConfig, gridSize: Number(e.target.value)})}
-                  />
-                </div>
-              </div>
-              <Button onClick={updateWarehouseConfig} className="w-full">
-                <Save className="h-4 w-4 mr-2" />
-                Update Configuration
-              </Button>
             </CardContent>
           </Card>
         </TabsContent>

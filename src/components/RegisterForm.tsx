@@ -6,20 +6,21 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const RegisterForm = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!fullName || !email || !userId || !password || !confirmPassword) {
+    if (!fullName || !email || !password || !confirmPassword) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -29,14 +30,27 @@ const RegisterForm = () => {
       return;
     }
 
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long");
+      return;
+    }
+
     setIsLoading(true);
     
-    // This would be a real API call in a production app
-    setTimeout(() => {
-      toast.success("Registration successful");
-      navigate("/login");
+    try {
+      const { error } = await signUp(email, password, fullName);
+      
+      if (error) {
+        toast.error(error.message || "Registration failed");
+      } else {
+        toast.success("Registration successful! Please check your email for verification.");
+        navigate("/login");
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -73,22 +87,11 @@ const RegisterForm = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="userId">User ID</Label>
-            <Input
-              id="userId"
-              placeholder="Choose a unique user ID"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              required
-              className="bg-secondary/50"
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               type="password"
-              placeholder="Create a password"
+              placeholder="Create a password (min 6 characters)"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
