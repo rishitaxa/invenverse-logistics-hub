@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 // Import all page components
 import Index from "./pages/Index";
@@ -31,14 +32,46 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/warehouse" element={<WarehousePage />} />
-            <Route path="/shipments" element={<ShipmentPage />} />
-            <Route path="/analytics" element={<AnalyticsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/user-control" element={<UserControlPage />} />
-            <Route path="/path-customizer" element={<PathCustomizerPage />} />
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/inventory" element={
+              <ProtectedRoute>
+                <InventoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/warehouse" element={
+              <ProtectedRoute>
+                <WarehousePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/shipments" element={
+              <ProtectedRoute>
+                <ShipmentPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/analytics" element={
+              <ProtectedRoute>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/user-control" element={
+              <ProtectedRoute>
+                <UserControlPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/path-customizer" element={
+              <ProtectedRoute>
+                <PathCustomizerPage />
+              </ProtectedRoute>
+            } />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

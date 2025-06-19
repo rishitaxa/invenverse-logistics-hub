@@ -23,18 +23,42 @@ const LoginForm = () => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     setIsLoading(true);
+    console.log('Login attempt for:', email);
     
     try {
       const { error } = await signIn(email, password);
       
       if (error) {
-        toast.error(error.message || "Login failed");
+        console.error('Login error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error("Invalid email or password. Please check your credentials.");
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error("Please confirm your email address before logging in.");
+        } else {
+          toast.error(error.message || "Login failed");
+        }
       } else {
-        toast.success("Login successful");
+        console.log('Login successful, navigating to dashboard');
+        toast.success("Login successful!");
         navigate("/dashboard");
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);

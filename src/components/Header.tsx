@@ -1,6 +1,4 @@
 
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Bell, Settings, LogOut, User } from "lucide-react";
 import { 
@@ -12,24 +10,25 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [userId, setUserId] = useState("");
-  
-  useEffect(() => {
-    const storedUserId = localStorage.getItem("userId");
-    if (storedUserId) {
-      setUserId(storedUserId);
-    }
-  }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userId");
-    toast.success("Logged out successfully");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      toast.error("Error signing out");
+    }
   };
+
+  const userDisplayName = user?.user_metadata?.full_name || user?.email || "User";
+  const userInitial = userDisplayName.charAt(0).toUpperCase();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -55,9 +54,9 @@ const Header = () => {
               size="sm"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                {userId.charAt(0).toUpperCase()}
+                {userInitial}
               </div>
-              <span className="hidden md:inline">{userId}</span>
+              <span className="hidden md:inline">{userDisplayName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">

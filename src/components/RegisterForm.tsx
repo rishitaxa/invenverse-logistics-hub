@@ -25,6 +25,13 @@ const RegisterForm = () => {
       return;
     }
 
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -36,17 +43,29 @@ const RegisterForm = () => {
     }
 
     setIsLoading(true);
+    console.log('Registration attempt for:', email);
     
     try {
       const { error } = await signUp(email, password, fullName);
       
       if (error) {
-        toast.error(error.message || "Registration failed");
+        console.error('Registration error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('User already registered')) {
+          toast.error("An account with this email already exists. Please try logging in.");
+        } else if (error.message.includes('Password')) {
+          toast.error("Password requirements not met. Please use a stronger password.");
+        } else {
+          toast.error(error.message || "Registration failed");
+        }
       } else {
-        toast.success("Registration successful! Please check your email for verification.");
+        console.log('Registration successful');
+        toast.success("Registration successful! You can now log in.");
         navigate("/login");
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
