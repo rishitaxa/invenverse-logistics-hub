@@ -63,7 +63,7 @@ serve(async (req) => {
       }
     }
 
-    // Python-style output format
+    // Python-style output format - Fixed template literal syntax
     const pythonStyleReport = `
 # Inventory Management Report
 # Generated: ${reportData.timestamp}
@@ -96,7 +96,7 @@ def check_low_stock():
 if __name__ == "__main__":
     print("=== INVENTORY MANAGEMENT SYSTEM ===")
     print(f"Total Products: {total_products}")
-    print(f"Total Value: ${total_inventory_value:.2f}")
+    print(f"Total Value: {total_inventory_value:.2f}")
     print(f"Categories: {unique_categories}")
     print("\\nZone Analysis:")
     analyze_zones()
