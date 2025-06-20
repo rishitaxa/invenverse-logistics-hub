@@ -22,6 +22,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     console.log('Setting up auth state listener');
     
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email || 'No user');
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+        
+        // Create default warehouse zones for new users
+        if (event === 'SIGNED_IN' && session?.user) {
+          setTimeout(async () => {
+            try {
+              // Check if user already has warehouse zones
+              const { data: existingZones } = await supabase
+                .from('warehouse_zones')
+                .select('id')
+                .eq('user_id', session.user.id)
+                .limit(1);
+              
+              if (!existingZones || existingZones.length === 0) {
+                console.log('Creating default warehouse zones for new user');
+                const defaultZones = ['A', 'B', 'C', 'D'].map(zoneId => ({
+                  user_id: session.user.id,
+                  zone_id: zoneId,
+                  capacity: 1000,
+                  utilization: 0,
+                  status: 'Optimal'
+                }));
+                
+                await supabase.from('warehouse_zones').insert(defaultZones);
+              }
+            } catch (error) {
+              console.error('Error creating default zones:', error);
+            }
+          }, 1000);
+        }
+      }
+    );
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -42,16 +81,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     getInitialSession();
 
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email || 'No user');
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
     return () => {
       subscription.unsubscribe();
     };
@@ -66,6 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             full_name: fullName,
           }
@@ -98,7 +128,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         console.error('Sign in error:', error);
       } else {
         console.log('Sign in successful:', data.user?.email);
-        // The onAuthStateChange will handle setting the user and session
       }
       
       return { error };
